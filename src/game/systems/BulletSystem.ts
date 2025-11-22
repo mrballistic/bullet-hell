@@ -16,7 +16,7 @@ export class BulletSystem {
 
     // Handle player shooting
     if (input.isShooting && nowMs - player.lastShotTimeMs > this.PLAYER_FIRE_RATE_MS) {
-      this.spawnPlayerBullet(state)
+      this.spawnPlayerBullet(state, input.targetX, input.targetY, nowMs)
       player.lastShotTimeMs = nowMs
     }
 
@@ -45,15 +45,13 @@ export class BulletSystem {
     BulletSystem.spawnPatterns(state, nowMs)
   }
 
-  private static spawnPlayerBullet(state: GameState) {
-    const { player, input } = state
-    
-    // Calculate direction from player to mouse
-    const dx = input.targetX - player.x
-    const dy = input.targetY - player.y
+  private static spawnPlayerBullet(state: GameState, targetX: number, targetY: number, nowMs: number) {
+    const { player } = state
+    const dx = targetX - player.x
+    const dy = targetY - player.y
     const distance = Math.sqrt(dx * dx + dy * dy)
     
-    if (distance === 0) return // Avoid division by zero
+    if (distance === 0) return // Don't shoot if target is at same position
     
     // Normalize direction and apply speed
     const vx = (dx / distance) * this.PLAYER_BULLET_SPEED
@@ -65,11 +63,11 @@ export class BulletSystem {
       vx,
       vy,
       life: 0,
-      maxLife: 2, // Player bullets live for 2 seconds
-      hueOffset: 120, // Green for player bullets
-      isPlayerBullet: true
+      maxLife: 3, // Player bullets live 3 seconds
+      hueOffset: 120, // Green-ish bullets for player
+      isPlayerBullet: true,
+      createdAtMs: nowMs
     }
-    
     state.bullets.push(bullet)
   }
 
@@ -91,7 +89,7 @@ export class BulletSystem {
     const centerY = height / 2
     const bulletCount = 8 // Reduced from 12 for less density
     const speed = 120 // Slightly slower for better dodgeability
-    const safeRadius = 60 // Safe zone around player
+    const safeRadius = 100 // Increased safe zone around player
     
     // Check if player is too close to center, adjust spawn position if needed
     const distToPlayer = Math.sqrt(Math.pow(player.x - centerX, 2) + Math.pow(player.y - centerY, 2))
@@ -116,45 +114,78 @@ export class BulletSystem {
         life: 0,
         maxLife: 10, // Longer lifetime for more screen coverage
         hueOffset: (i / bulletCount) * 60,
-        isPlayerBullet: false
+        isPlayerBullet: false,
+        createdAtMs: nowMs
       }
       state.bullets.push(bullet)
     }
   }
 
-  private static spawnPlayerRing(state: GameState, _nowMs: number) {
+  private static spawnPlayerRing(state: GameState, nowMs: number) {
     const { player, width, height } = state
     const bulletCount = 16
     const speed = 120
-    const safeRadius = 80 // Minimum distance from player to spawn bullets
+    const safeRadius = 100 // Increased safe zone around player
     
-    // Calculate ring position at safe distance from player
-    const angleToPlayer = Math.atan2(player.y - height/2, player.x - width/2)
-    const ringDistance = Math.max(safeRadius, 150) // At least 150px from center, but keep safe distance from player
-    const ringX = width/2 + Math.cos(angleToPlayer) * ringDistance
-    const ringY = height/2 + Math.sin(angleToPlayer) * ringDistance
+    // Spawn ring at screen edges, away from player
+    let spawnX = width / 2
+    let spawnY = 50 // Default to top edge
     
-    // Ensure ring stays within screen bounds
-    const clampedX = Math.max(50, Math.min(width - 50, ringX))
-    const clampedY = Math.max(50, Math.min(height - 50, ringY))
+    // Choose spawn edge based on player position to maximize distance
+    const distToLeft = player.x
+    const distToRight = width - player.x
+    const distToTop = player.y
+    const distToBottom = height - player.y
+    
+    if (distToLeft > distToRight && distToLeft > distToTop && distToLeft > distToBottom) {
+      // Spawn on left edge
+      spawnX = 50
+      spawnY = player.y
+    } else if (distToRight > distToTop && distToRight > distToBottom) {
+      // Spawn on right edge
+      spawnX = width - 50
+      spawnY = player.y
+    } else if (distToBottom > distToTop) {
+      // Spawn on bottom edge
+      spawnX = player.x
+      spawnY = height - 50
+    }
+    // else: keep default top edge spawn
+    
+    // Ensure spawn position is at least safeRadius away from player
+    const dx = spawnX - player.x
+    const dy = spawnY - player.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    
+    if (distance < safeRadius) {
+      // Push spawn position further away
+      const angle = Math.atan2(dy, dx)
+      spawnX = player.x + Math.cos(angle) * (safeRadius + 50)
+      spawnY = player.y + Math.sin(angle) * (safeRadius + 50)
+      
+      // Keep within screen bounds
+      spawnX = Math.max(50, Math.min(width - 50, spawnX))
+      spawnY = Math.max(50, Math.min(height - 50, spawnY))
+    }
     
     for (let i = 0; i < bulletCount; i++) {
       const angle = (i / bulletCount) * Math.PI * 2
       const bullet: Bullet = {
-        x: clampedX,
-        y: clampedY,
+        x: spawnX,
+        y: spawnY,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         life: 0,
         maxLife: 6,
         hueOffset: 180, // Blue-ish bullets for player ring
-        isPlayerBullet: false
+        isPlayerBullet: false,
+        createdAtMs: nowMs
       }
       state.bullets.push(bullet)
     }
   }
 
-  private static spawnSweepingArc(state: GameState, _nowMs: number) {
+  private static spawnSweepingArc(state: GameState, nowMs: number) {
     const { width, height } = state
     const fromLeft = Math.random() > 0.5
     const bulletCount = 8
@@ -177,7 +208,8 @@ export class BulletSystem {
         life: 0,
         maxLife: 7,
         hueOffset: 300, // Purple-ish bullets for sweeping arc
-        isPlayerBullet: false
+        isPlayerBullet: false,
+        createdAtMs: nowMs
       }
       state.bullets.push(bullet)
     }

@@ -1,8 +1,22 @@
 import { GameState } from '../../types/GameTypes'
 
 export class PlayerSystem {
-  static update(state: GameState, deltaSeconds: number, nowMs: number) {
+  static update(state: GameState, deltaSeconds: number, _nowMs: number) {
     const { player, input, width, height } = state
+    
+    // Calculate rotation to point toward mouse
+    const dx = input.targetX - player.x
+    const dy = input.targetY - player.y
+    const targetRotation = Math.atan2(dy, dx) + Math.PI / 2 // Add PI/2 to point up toward mouse
+    
+    // Smooth rotation interpolation
+    let rotationDiff = targetRotation - player.rotation
+    // Handle angle wrapping for smooth rotation
+    while (rotationDiff > Math.PI) rotationDiff -= Math.PI * 2
+    while (rotationDiff < -Math.PI) rotationDiff += Math.PI * 2
+    
+    const rotationSmoothing = 1 - Math.exp(-10 * deltaSeconds) // Faster rotation smoothing
+    player.rotation += rotationDiff * rotationSmoothing
     
     // Smooth lerp towards target position
     const smoothingFactor = 1 - Math.exp(-5 * deltaSeconds) // Exponential smoothing
@@ -13,40 +27,7 @@ export class PlayerSystem {
     player.x = Math.max(player.radius, Math.min(width - player.radius, player.x))
     player.y = Math.max(player.radius, Math.min(height - player.radius, player.y))
     
-    // Check collisions
-    PlayerSystem.checkCollisions(state, nowMs)
-  }
-
-  private static checkCollisions(state: GameState, nowMs: number) {
-    const { player, bullets } = state
-    
-    // Skip if invincible
-    if (player.invincibleUntilMs > nowMs) return
-    
-    for (const bullet of bullets) {
-      const dx = bullet.x - player.x
-      const dy = bullet.y - player.y
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      
-      // Check if bullet hits player (bullet radius 4 + player radius)
-      if (distance < player.radius + 4) {
-        PlayerSystem.handleHit(state, nowMs)
-        break // Only handle one hit per frame
-      }
-    }
-  }
-
-  private static handleHit(state: GameState, nowMs: number) {
-    const { player } = state
-    
-    // Increment deaths
-    player.deaths++
-    
-    // Set invincibility (2 seconds)
-    player.invincibleUntilMs = nowMs + 2000
-    
-    // Store hit time for visual effects
-    player.lastHitMs = nowMs
+    // OLD COLLISION SYSTEM REMOVED - now handled by CollisionSystem with shield support
   }
 
   static draw(ctx: CanvasRenderingContext2D, state: GameState, nowMs: number) {
@@ -64,8 +45,11 @@ export class PlayerSystem {
     // Move to player position
     ctx.translate(player.x, player.y)
     
-    // Add slight wobble based on time
-    const wobble = Math.sin(nowMs / 200) * 0.05
+    // Rotate to point toward mouse
+    ctx.rotate(player.rotation)
+    
+    // Add slight wobble based on time (subtle effect)
+    const wobble = Math.sin(nowMs / 200) * 0.02
     ctx.rotate(wobble)
     
     // Color shifting

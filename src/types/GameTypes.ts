@@ -12,7 +12,8 @@ export interface Bullet {
   life: number // seconds alive
   maxLife: number // seconds until despawn
   hueOffset: number // for color variety
-  isPlayerBullet?: boolean // distinguish between enemy and player bullets
+  isPlayerBullet: boolean // distinguish between enemy and player bullets
+  createdAtMs: number // Timestamp when bullet was created
 }
 
 export interface Asteroid {
@@ -31,6 +32,7 @@ export interface Player {
   x: number
   y: number
   radius: number
+  rotation: number // Ship rotation in radians
   invincibleUntilMs: number
   lastHitMs: number
   deaths: number
@@ -38,8 +40,7 @@ export interface Player {
   score: number
   shield: {
     parts: number // 0-3 shield parts remaining
-    lastDamageTimeMs: number // Track when shield was last hit for regeneration
-    isRegenerating: boolean
+    sectionDamageTimes: number[] // Track when each section was last hit [section1, section2, section3]
   }
 }
 

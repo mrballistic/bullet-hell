@@ -11,11 +11,11 @@ export class HudSystem {
     // Draw score
     HudSystem.drawScore(ctx, player, width, height)
     
+    // Draw lives as triangles
+    HudSystem.drawLivesTriangles(ctx, player, width, height)
+    
     // Draw shield status
     HudSystem.drawShieldStatus(ctx, player, nowMs)
-    
-    // Draw deaths counter
-    HudSystem.drawDeathsCounter(ctx, player, width, height)
     
     // Draw instructions
     HudSystem.drawInstructions(ctx, width, height, state.isPaused, state.isGameOver)
@@ -66,7 +66,6 @@ export class HudSystem {
   }
 
   private static drawShieldStatus(ctx: CanvasRenderingContext2D, player: any, nowMs: number) {
-    const { shield } = player
     const y = 60 // Position below score
     
     // Draw shield parts
@@ -80,18 +79,35 @@ export class HudSystem {
     ctx.shadowOffsetX = 2
     ctx.shadowOffsetY = 2
     
+    // Count active sections and check if any are recovering
+    let activeSections = 0
+    let recoveringSections = 0
+    let minRecoveryTime = Infinity
+    
+    for (let i = 0; i < 3; i++) {
+      const status = ShieldSystem.getSectionStatus({ player } as GameState, i, nowMs)
+      if (status === 'active') {
+        activeSections++
+      } else if (status === 'recovering') {
+        recoveringSections++
+        const timeRemaining = ShieldSystem.getRecoveryTimeRemaining({ player } as GameState, i, nowMs)
+        minRecoveryTime = Math.min(minRecoveryTime, timeRemaining)
+      }
+    }
+    
     // Draw shield indicator
     let shieldText = 'Shield: '
     let shieldColor = 'rgba(255, 255, 255, 0.8)'
     
-    if (shield.parts === 0) {
-      const timeRemaining = ShieldSystem.getRegenerationTimeRemaining({ player } as GameState, nowMs)
-      const secondsRemaining = Math.ceil(timeRemaining / 1000)
-      shieldText += `Regenerating in ${secondsRemaining}s...`
+    if (activeSections === 0 && recoveringSections > 0) {
+      const secondsRemaining = Math.ceil(minRecoveryTime / 1000)
+      shieldText += `Recovering in ${secondsRemaining}s...`
       shieldColor = 'rgba(255, 100, 100, 0.8)'
     } else {
-      shieldText += '■'.repeat(shield.parts) + '□'.repeat(3 - shield.parts)
-      if (ShieldSystem.isRegeneratingSoon({ player } as GameState, nowMs)) {
+      // Show active sections as filled blocks, damaged as empty
+      shieldText += '■'.repeat(activeSections) + '□'.repeat(3 - activeSections)
+      if (recoveringSections > 0) {
+        shieldText += ` (${Math.ceil(minRecoveryTime / 1000)}s)`
         shieldColor = 'rgba(255, 255, 100, 0.8)'
       }
     }
@@ -106,15 +122,15 @@ export class HudSystem {
     ctx.shadowOffsetY = 0
   }
 
-  private static drawDeathsCounter(ctx: CanvasRenderingContext2D, player: any, width: number, height: number) {
+  private static drawLivesTriangles(ctx: CanvasRenderingContext2D, player: any, _width: number, _height: number) {
     const remainingLives = Math.max(0, 3 - player.deaths)
-    const text = `Lives: ${remainingLives}/3`
+    const y = 95 // Position below score and shield
     
-    // Set up text style
-    ctx.font = 'bold 20px system-ui, -apple-system, sans-serif'
-    ctx.fillStyle = remainingLives <= 1 ? 'rgba(255, 100, 100, 0.9)' : 'rgba(255, 255, 255, 0.8)'
-    ctx.textAlign = 'right'
-    ctx.textBaseline = 'bottom'
+    // Set up text style for lives label
+    ctx.font = 'bold 16px system-ui, -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
     
     // Draw text shadow for better readability
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)'
@@ -122,8 +138,44 @@ export class HudSystem {
     ctx.shadowOffsetX = 2
     ctx.shadowOffsetY = 2
     
-    // Draw deaths counter in bottom-right corner
-    ctx.fillText(text, width - 20, height - 20)
+    // Draw "Lives:" label
+    ctx.fillText('Lives:', 20, y)
+    
+    // Draw triangles for remaining lives
+    const triangleSize = 12
+    const startX = 80
+    const triangleY = y + 5
+    
+    ctx.fillStyle = remainingLives <= 1 ? 'rgba(255, 100, 100, 0.9)' : 'rgba(100, 255, 100, 0.9)'
+    
+    for (let i = 0; i < remainingLives; i++) {
+      const x = startX + (i * (triangleSize + 8))
+      
+      // Draw triangle pointing up
+      ctx.beginPath()
+      ctx.moveTo(x, triangleY - triangleSize/2)
+      ctx.lineTo(x - triangleSize/2, triangleY + triangleSize/2)
+      ctx.lineTo(x + triangleSize/2, triangleY + triangleSize/2)
+      ctx.closePath()
+      ctx.fill()
+    }
+    
+    // Draw empty triangles for lost lives
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
+    ctx.lineWidth = 1
+    
+    for (let i = remainingLives; i < 3; i++) {
+      const x = startX + (i * (triangleSize + 8))
+      
+      // Draw empty triangle outline
+      ctx.beginPath()
+      ctx.moveTo(x, triangleY - triangleSize/2)
+      ctx.lineTo(x - triangleSize/2, triangleY + triangleSize/2)
+      ctx.lineTo(x + triangleSize/2, triangleY + triangleSize/2)
+      ctx.closePath()
+      ctx.stroke()
+    }
     
     // Reset shadow
     ctx.shadowColor = 'transparent'

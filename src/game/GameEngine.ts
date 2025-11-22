@@ -10,10 +10,11 @@ import { HudSystem } from './systems/HudSystem'
 export class GameEngine {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
+  private config: GameConfig
+  private state: GameState
   private animationId: number | null = null
   private lastFrameTimeMs: number = 0
-  private state: GameState
-  private config: GameConfig
+  private lastLoggedDeaths: number = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -33,6 +34,7 @@ export class GameEngine {
 
     // Initialize game state
     this.state = this.initializeState()
+    this.lastLoggedDeaths = this.state.player.deaths
   }
 
   private initializeState(): GameState {
@@ -44,6 +46,7 @@ export class GameEngine {
         x: this.canvas.width / 2,
         y: this.canvas.height / 2,
         radius: this.config.playerRadius,
+        rotation: 0, // Initial rotation pointing up
         invincibleUntilMs: 0,
         lastHitMs: 0,
         deaths: 0,
@@ -51,8 +54,7 @@ export class GameEngine {
         score: 0,
         shield: {
           parts: 3,
-          lastDamageTimeMs: 0,
-          isRegenerating: false
+          sectionDamageTimes: [0, 0, 0] // All sections initially active
         }
       },
       input: {
@@ -119,7 +121,14 @@ export class GameEngine {
     
     // Check for game over (3 deaths)
     if (this.state.player.deaths >= 3) {
+      console.log(`🎮 GAME OVER TRIGGERED! Deaths: ${this.state.player.deaths}, Shield: ${this.state.player.shield.parts}`)
       this.state.isGameOver = true
+    }
+    
+    // Log any unexpected death changes
+    if (this.state.player.deaths !== this.lastLoggedDeaths) {
+      console.log(`⚠️ DEATH CHANGED! Was: ${this.lastLoggedDeaths}, Now: ${this.state.player.deaths}`)
+      this.lastLoggedDeaths = this.state.player.deaths
     }
   }
 
@@ -134,7 +143,9 @@ export class GameEngine {
     FlowFieldSystem.draw(ctx, this.state, nowMs)
     
     // Draw asteroids
-    AsteroidSystem.draw(ctx, this.state, nowMs)
+    if (this.state.asteroids && Array.isArray(this.state.asteroids)) {
+      AsteroidSystem.draw(ctx, this.state.asteroids, nowMs)
+    }
     
     // Draw bullets
     BulletSystem.draw(ctx, this.state, nowMs)
