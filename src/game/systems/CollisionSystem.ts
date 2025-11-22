@@ -1,6 +1,7 @@
 import { GameState } from '../../types/GameTypes'
 import { AsteroidSystem } from './AsteroidSystem'
 import { ShieldSystem } from './ShieldSystem'
+import { ExplosionSystem } from './ExplosionSystem'
 
 export class CollisionSystem {
   static update(state: GameState, _deltaSeconds: number, nowMs: number) {
@@ -17,12 +18,21 @@ export class CollisionSystem {
         const asteroid = asteroids[j]
         
         if (AsteroidSystem.checkCollision(bullet.x, bullet.y, asteroid)) {
+          // Create explosion at bullet hit point
+          const explosionHue = 120 + Math.random() * 60 // Green to yellow range for player bullets
+          const explosionParticles = ExplosionSystem.createExplosion(bullet.x, bullet.y, 8, explosionHue, 'bullet')
+          state.explosionParticles.push(...explosionParticles)
+          
           // Remove bullet
           bullets.splice(i, 1)
           
           // Damage asteroid
           if (AsteroidSystem.damageAsteroid(asteroid)) {
-            // Asteroid destroyed
+            // Asteroid destroyed - create bigger explosion
+            const asteroidHue = asteroid.size === 'large' ? 30 : asteroid.size === 'medium' ? 45 : 15
+            const asteroidExplosion = ExplosionSystem.createExplosion(asteroid.x, asteroid.y, 15, asteroidHue, 'asteroid')
+            state.explosionParticles.push(...asteroidExplosion)
+            
             asteroids.splice(j, 1)
             
             // Add score based on asteroid size

@@ -1,3 +1,15 @@
+export interface ExplosionParticle {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number // seconds alive
+  maxLife: number // seconds until fade out
+  size: number
+  hue: number
+  type: 'asteroid' | 'bullet'
+}
+
 export interface FlowParticle {
   x: number
   y: number
@@ -61,6 +73,7 @@ export interface GameState {
   bullets: Bullet[]
   asteroids: Asteroid[]
   flowParticles: FlowParticle[]
+  explosionParticles: ExplosionParticle[]
   player: Player
   input: InputState
   lastPatternTimeMs: number

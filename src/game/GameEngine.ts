@@ -6,6 +6,7 @@ import { AsteroidSystem } from './systems/AsteroidSystem'
 import { CollisionSystem } from './systems/CollisionSystem'
 import { ShieldSystem } from './systems/ShieldSystem'
 import { HudSystem } from './systems/HudSystem'
+import { ExplosionSystem } from './systems/ExplosionSystem'
 
 export class GameEngine {
   private canvas: HTMLCanvasElement
@@ -42,6 +43,7 @@ export class GameEngine {
       bullets: [],
       asteroids: AsteroidSystem.initialize(5, this.canvas.width, this.canvas.height),
       flowParticles: FlowFieldSystem.initialize(this.config.flowParticleCount, this.canvas.width, this.canvas.height),
+      explosionParticles: [],
       player: {
         x: this.canvas.width / 2,
         y: this.canvas.height / 2,
@@ -101,23 +103,14 @@ export class GameEngine {
     // Skip updates if paused or game over
     if (this.state.isPaused || this.state.isGameOver) return
     
-    // Update flow field system
+    // Update game systems
     FlowFieldSystem.update(this.state, deltaSeconds, nowMs)
-    
-    // Update player system
     PlayerSystem.update(this.state, deltaSeconds, nowMs)
-    
-    // Update bullet system
     BulletSystem.update(this.state, deltaSeconds, nowMs)
-    
-    // Update asteroid system
     AsteroidSystem.update(this.state, deltaSeconds, nowMs)
-    
-    // Update collision system
     CollisionSystem.update(this.state, deltaSeconds, nowMs)
-    
-    // Update shield system
     ShieldSystem.update(this.state, deltaSeconds, nowMs)
+    ExplosionSystem.update(this.state, deltaSeconds, nowMs)
     
     // Check for game over (3 deaths)
     if (this.state.player.deaths >= 3) {
@@ -141,6 +134,9 @@ export class GameEngine {
     
     // Draw flow field
     FlowFieldSystem.draw(ctx, this.state, nowMs)
+    
+    // Draw explosion particles (before other objects for background effect)
+    ExplosionSystem.draw(ctx, this.state.explosionParticles, nowMs)
     
     // Draw asteroids
     if (this.state.asteroids && Array.isArray(this.state.asteroids)) {

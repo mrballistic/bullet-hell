@@ -1,4 +1,5 @@
 import { Bullet, GameState } from '../../types/GameTypes'
+import { ExplosionSystem } from './ExplosionSystem'
 
 type BulletPattern = (state: GameState, nowMs: number) => void
 
@@ -37,6 +38,13 @@ export class BulletSystem {
         bullet.x < -50 || bullet.x > width + 50 ||
         bullet.y < -50 || bullet.y > height + 50
       ) {
+        // Create small explosion for expired player bullets
+        if (bullet.isPlayerBullet) {
+          const explosionHue = 120 + Math.random() * 60 // Green to yellow range
+          const explosionParticles = ExplosionSystem.createExplosion(bullet.x, bullet.y, 4, explosionHue, 'bullet')
+          state.explosionParticles.push(...explosionParticles)
+        }
+        
         bullets.splice(i, 1)
       }
     }
